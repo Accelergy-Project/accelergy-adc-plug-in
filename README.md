@@ -30,13 +30,13 @@ python3 run.py -g
 
 
 This command will generate a model using the packaged ADC list from Boris
-Murmann's survey [#Murmann]_ last refreshed 11/16/2021.
+Murmann's survey [1] last refreshed 11/16/2021.
 The ``run.py`` script comes with many other
 options to refresh the survey from the internet, adjust modeling parameters,
 and even use your own ADC list in Excel or .csv formats. Use 
 ``python run.py -h`` to view available options.
 
-.. [#Murmann]_ B. Murmann, "ADC Performance Survey 1997-2021," [Online]. Available: http://web.stanford.edu/~murmann/adcsurvey.html
+[1] B. Murmann, "ADC Performance Survey 1997-2021," [Online]. Available: http://web.stanford.edu/~murmann/adcsurvey.html
 
 ## License
 This work is licensed under the MIT license. See license.txt for details.
