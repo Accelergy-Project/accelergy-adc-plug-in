@@ -1,0 +1,54 @@
+#
+# This file can be used to modify the ADC modelling space.
+#   model set: The set of ADCs used to produce the final model.
+#   constraints: Design constraints for ADC parameters
+
+model constraints:
+  # ADCs with a quality between min percentile and max percentile are chosen
+  # for the final model.
+  # Quality is defined by how close to the Pareto-optimal line an ADC is.
+  min pareto percentile: 95 # Base model on the top 10% of ADCs found
+  max pareto percentile: 98 # But ignore top 2%
+
+  # The model set is expanded as needed to include all listed percentiles.
+  #include percentiles:
+  #  area (mm^2):
+  #  energy per inference (pJ/op):
+  #  frequency (Hz):
+  #    - 10 # Ensure model set includes ADCs <= 10th percentile frequency
+  #    - 90 # Ensure model set includes ADCs >= 90th percentile frequency
+  #  tech node (nm):
+  #    - 10
+  #    - 90 # Specific to the Murmann dataset: There are many older tech node
+  #         # ADCs that we don't need to force into the Pareto group
+  #  number of bits:
+  #    - 10
+  #    - 90 # Specific to Murmann dataset: Many high-resolution ADCs that we
+  #         # don't need to force into the Pareto group
+
+input constraints:
+  # There are two ways to add input constraints:
+  #   min/max: A minimum and maximum value are set based on provided values
+  #   min percentile/max percentile: A minimum and maximum value are set based
+  #                                  on the given percentile in the dataset.
+  # Any combination of the four parameters may be supplied. If both min and
+  # min percentile or both max and max percentile are supplied, then the more
+  # restrictive of the two options will be picked when building the model.
+
+  area (mm^2):
+    max percentile: 90 # Get rid of highest-area ADCs
+
+  energy per inference (pJ/op):
+    max percentile: 95 # Get rid of highest-energy ADCs
+
+  frequency (Hz):
+    min percentile: 1
+    max percentile: 99
+    min value: 1000000 # 1MHz
+    max value: 5000000000 # 3GHz
+
+  tech node (nm):
+    min percentile: 0 # Tech node fine; just here as a placeholder
+
+  bits:
+    max value: 20 # No super high resolution ADCs

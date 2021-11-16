@@ -1,0 +1,5 @@
+  version: 0.0
+  AnalogEstimator:
+    module:  wrapper
+    class:   AnalogEstimator
+    parameter: none
