@@ -36,6 +36,8 @@ options to refresh the survey from the internet, adjust modeling parameters,
 and even use your own ADC list in Excel or .csv formats. Use 
 ``python run.py -h`` to view available options.
 
+## References
+
 [1] B. Murmann, "ADC Performance Survey 1997-2021," [Online]. Available: http://web.stanford.edu/~murmann/adcsurvey.html
 
 ## License
