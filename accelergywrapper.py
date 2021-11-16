@@ -189,8 +189,7 @@ class AnalogEstimator:
                       f' estimation with attributes: {dict_to_str(attributes)}')
                 print(f'Info: Generated model uses {r.adc_count} ADCs at '
                       f'{r.area_per_channnel * r.channel_count:.3} um^2 total.')
-                return r.area_per_channnel * r.channel_count \
-                    * 10 ** 6  # mm^2 -> um^2
+                return r.area_per_channnel * r.channel_count  # mm^2 -> um^2
             except AssertionError as e:
                 print(f'Warn: Analog Plug-in could not generate ADC. {e}')
                 print(f'Warn: Attributes given: {dict_to_str(attributes)}')
