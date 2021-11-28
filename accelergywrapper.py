@@ -22,11 +22,16 @@ def unit_check(key, attributes, default, my_scale, accelergy_scale):
     """ Checks for a key in attributes & does unit conversions """
     if key not in attributes:
         return default
+    try:
+        return float(attributes[key]) / my_scale * accelergy_scale
+    except ValueError:
+        pass
+
     v = re.findall(r'(\d*\.?\d+|\d+\.?\d*)', attributes[key])
     if not v:
         return default
-
     v = float(v[0]) / my_scale
+
     nounit = True
     for index, postfix in enumerate(['', 'm', 'u', 'n', 'p', 'f']):
         if postfix in attributes[key]:
@@ -62,7 +67,7 @@ def adc_attr_to_request(attributes):
         latency              =float(unit_check('adc_latency', attributes, 0, 1, 10 ** -9)), # We use seconds, accelergy uses nanoseconds
         throughput           =float(check('adc_throughput', 0)),
         area_budget          =      unit_check('area_budget', attributes, None, 10 ** -12, 10 ** -12),  # We use um^2, accelergy uses um^2
-        energy_budget        =      unit_check('energy_budget', attributes, None, 10 ** 12, 10 ** -12),  # We use pJ, accelergy uses pJ
+        energy_budget        =      unit_check('energy_budget', attributes, None, 10 ** -12, 10 ** -12),  # We use pJ, accelergy uses pJ
         allow_extrapolation  =      check('allow_extrapolation', True),
     )
     return r
