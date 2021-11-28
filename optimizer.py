@@ -94,6 +94,7 @@ class Model:
         return math.exp(self._min_area), math.exp(self._max_area)
 
     def pick_design(self,
+                    target_area: float,
                     area_budget: float or None = None,
                     energy_budget: float or None = None,
                     ) -> Tuple[float, float]:
@@ -101,6 +102,7 @@ class Model:
         Picks optimal design for given design parameters and returns
         (area, energy) tuple.
         """
+        #print('')
         max_area, max_energy = self._max_area, self._max_energy
         if area_budget:
             area_budget = math.log(area_budget)
@@ -114,12 +116,14 @@ class Model:
             'Set design parameters before picking ADCs'
 
         # Calculate area
-        area = min(max_area, max(area_budget, self._min_area))
+        area = min(math.log(target_area), max_area)
         # Calculate energy
         energy = self._tradeoff_intercept + self._tradeoff_slope * area
         energy = min(max_energy, max(energy, self._min_energy))
         # Calculate area again in case the binding of energy changed it
         area = (energy - self._tradeoff_intercept) / self._tradeoff_slope
+
+        # print(f'Area: {area}, max area: {max_area}')
 
         assert (area < max_area or math.isclose(max_area, area)) and \
                (self._min_area < area or math.isclose(self._min_area, area)), \
@@ -214,21 +218,45 @@ class ADCRequest:
         # Calculate target area
         assert not math.isinf(min_area), \
             'Could not generate ADC for design parameters. Please relax ' \
-            'budgets or tech constraints.'
+            'budget/tech constraints or set allow_extrapolation: 1'
         target_area = math.exp(
             math.log(min_area) * (1 - self.energy_area_tradeoff) +
             math.log(max_area) * self.energy_area_tradeoff
         )
-
         # Find best design satisfying target area
         for n in list(set(n_adc_to_try)):
             try:
                 model.set_design_params(freq=freq(n))
+                area_budget = None
+                if self.area_budget is not None:
+                    area_budget = self.area_budget / n
                 area, energy = model.pick_design(
-                    target_area / n, self.energy_budget)
-                if self.energy_per_op is None or energy < self.energy_per_op:
+                    target_area / n, area_budget, self.energy_budget)
+
+                if self.energy_per_op is None:
                     self.area_per_channnel = area * n / self.channel_count
                     self.energy_per_op = energy
                     self.adc_count = n
+                    continue
+                if self.energy_budget is not None \
+                        and energy > self.energy_budget \
+                        and not math.isclose(energy, self.energy_budget):
+                    continue
+                if self.area_budget is not None \
+                        and area > self.area_budget \
+                        and not math.isclose(area, self.area_budget):
+                    continue
+
+                less_energy = energy < self.energy_per_op
+                less_area = area * n \
+                            / self.channel_count < self.area_per_channnel
+                on_target = area * n < target_area
+                prev_off_target = self.area_per_channnel \
+                                  * self.channel_count > target_area
+                if on_target and less_energy or prev_off_target and less_area:
+                    self.area_per_channnel = area * n / self.channel_count
+                    self.energy_per_op = energy
+                    self.adc_count = n
+
             except AssertionError:
                 pass
