@@ -102,7 +102,6 @@ class Model:
         Picks optimal design for given design parameters and returns
         (area, energy) tuple.
         """
-        #print('')
         max_area, max_energy = self._max_area, self._max_energy
         if area_budget:
             area_budget = math.log(area_budget)
@@ -249,10 +248,10 @@ class ADCRequest:
 
                 less_energy = energy < self.energy_per_op
                 less_area = area * n \
-                            / self.channel_count < self.area_per_channnel
+                    / self.channel_count < self.area_per_channnel
                 on_target = area * n < target_area
                 prev_off_target = self.area_per_channnel \
-                                  * self.channel_count > target_area
+                    * self.channel_count > target_area
                 if on_target and less_energy or prev_off_target and less_area:
                     self.area_per_channnel = area * n / self.channel_count
                     self.energy_per_op = energy
