@@ -16,6 +16,7 @@ git clone https://github.com/tanner-andrulis/Accelergy-Analog-Plugin.git
 cd Accelergy-Analog-Plugin
 pip install -r requirements.txt
 python3 run.py -g
+cp analog_components.lib.yaml /usr/local/share/accelergy/primitive_component_libs/
 echo "Done!"
 ```
 
@@ -41,6 +42,11 @@ Install requirements with:
 pip install -r requirements.txt
 ```
 
+Copy analog components library to Accelgery.
+
+```
+cp analog_components.lib.yaml /usr/local/share/accelergy/primitive_component_libs/
+```
 
 To generate ADC estimations, an ADC model must be generated. This can be done
 automatically by running the following:
