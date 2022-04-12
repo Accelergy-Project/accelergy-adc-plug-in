@@ -8,11 +8,21 @@ versions.
 
 - ADC
 
-## Installation
+## Cloning this Repository
 
-Add this script's directory to your `accelergy_config.yaml` file. See the
+Option 1:
+Clone this repository, then add the directory to your `accelergy_config.yaml` file. See the
 README at https://github.com/Accelergy-Project/accelergy for information on
 locating this file.
+
+Option 2:
+Navigate to your shared Accelergy plugin foolder and clone there.
+
+```
+cd /usr/local/share/accelergy/estimation_plug_ins
+```
+
+## Installation
 
 Install requirements with:
 
