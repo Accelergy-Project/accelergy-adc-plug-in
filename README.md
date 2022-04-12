@@ -11,7 +11,7 @@ versions.
 ## Quick install
 
 ```
-cd /usr/local/share/accelergy/estimation_plug_ins
+cd ~/.local/share/accelergy/estimation_plug_ins
 git clone https://github.com/tanner-andrulis/Accelergy-Analog-Plugin.git
 cd Accelergy-Analog-Plugin
 pip install -r requirements.txt
