@@ -8,6 +8,17 @@ versions.
 
 - ADC
 
+## Quick install
+
+```
+cd /usr/local/share/accelergy/estimation_plug_ins
+git clone https://github.com/tanner-andrulis/Accelergy-Analog-Plugin.git
+cd Accelergy-Analog-Plugin
+pip install -r requirements.txt
+python3 run.py -g
+echo "Done!"
+```
+
 ## Cloning this Repository
 
 Option 1:
@@ -37,7 +48,6 @@ automatically by running the following:
 ```
 python3 run.py -g
 ```
-
 
 This command will generate a model using the packaged ADC list from Boris
 Murmann's survey [1] last refreshed 11/16/2021.
