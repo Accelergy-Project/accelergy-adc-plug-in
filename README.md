@@ -17,13 +17,7 @@ git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
 pip install .
 ```
 
-Run first-time generation of ADCs.
-
-```
-cd ~/.local/share/accelergy/estimation_plug_ins/Accelergy-Analog-Plugin
-python3 run.py -g
-echo "Done!"
-```
+First-time ADC generation will be ran the when Accelergy invokes this script for the first time.
 
 ## Cloning this Repository
 
