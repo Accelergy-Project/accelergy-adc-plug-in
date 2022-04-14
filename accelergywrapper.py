@@ -87,6 +87,10 @@ def dict_to_str(attributes: Dict) -> str:
 class AnalogEstimator:
     def __init__(self):
         self.estimator_name = 'Analog Estimator'
+        if not os.path.exists(MODEL_FILE):
+            print('Running first-time Analog plugin setup.')
+            print('Generating ADC models.')
+            os.system('python3 {os.path.join(SCRIPT_DIR, run.py} -g')
         self.model = Model(MODEL_FILE)
 
     def primitive_action_supported(self, interface):
