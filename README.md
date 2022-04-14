@@ -10,13 +10,18 @@ versions.
 
 ## Quick install
 
+Clone repo, pip install.
+
 ```
-cd ~/.local/share/accelergy/estimation_plug_ins
-git clone https://github.com/tanner-andrulis/Accelergy-Analog-Plugin.git
-cd Accelergy-Analog-Plugin
-pip install -r requirements.txt
+git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
+pip install .
+```
+
+Run first-time generation of ADCs.
+
+```
+cd ~/.local/share/accelergy/estimation_plug_ins/Accelergy-Analog-Plugin
 python3 run.py -g
-cp analog_components.lib.yaml ~/.local/share/accelergy/primitive_component_libs/
 echo "Done!"
 ```
 
@@ -27,14 +32,16 @@ Clone this repository, then add the directory to your `accelergy_config.yaml` fi
 README at https://github.com/Accelergy-Project/accelergy for information on
 locating this file.
 
-Option 2:
-Navigate to your shared Accelergy plugin foolder and clone there.
+
+## Manual Installation
+
+Navigate to your shared Accelergy plugin folder and clone there.
 
 ```
 cd /usr/local/share/accelergy/estimation_plug_ins
+git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
+cd Accelergy-Analog-Plugin
 ```
-
-## Installation
 
 Install requirements with:
 
