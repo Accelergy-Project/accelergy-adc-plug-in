@@ -17,7 +17,7 @@ git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
 pip install .
 ```
 
-One-time ADC generation will be ran the when Accelergy invokes this script for the first time.
+One-time ADC model generation will be ran the when Accelergy invokes this script for the first time.
 
 ## Cloning this Repository
 
