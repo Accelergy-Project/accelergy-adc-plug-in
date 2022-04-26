@@ -13,7 +13,8 @@ versions.
 Clone repo, pip install.
 
 ```
-git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
+git clone https://github.com/Accelergy-Project/accelergy-analog-plug-in.git
+cd accelergy-analog-plug-in
 pip install .
 ```
 
@@ -33,7 +34,7 @@ Navigate to your shared Accelergy plugin folder and clone there.
 
 ```
 cd /usr/local/share/accelergy/estimation_plug_ins
-git clone https://github.com/Accelergy-Project/Accelergy-Analog-Plugin.git
+git clone https://github.com/Accelergy-Project/accelergy-analog-plug-in.git
 cd Accelergy-Analog-Plugin
 ```
 
