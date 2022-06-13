@@ -3,14 +3,8 @@
 from argparse import ArgumentParser
 import murmannsurvey
 import model
-import yaml
-import os
 import sys
-
-CURRENT_DIR = os.path.dirname(__file__)
-CONSTRAINTS_DEFAULT = os.path.join(CURRENT_DIR, 'adc_data/constraints.yaml')
-ADC_LIST_DEFAULT = os.path.join(CURRENT_DIR, 'adc_data/adc_list.csv')
-MODEL_DEFAULT = os.path.join(CURRENT_DIR, 'adc_data/model.yaml')
+from headers import *
 
 if __name__ == '__main__':
     parser = ArgumentParser(
@@ -30,11 +24,6 @@ if __name__ == '__main__':
              '.xls files are also accpeted if the file has one sheet and '
              'column names match adc_data/adc_list.csv column names.')
     parser.add_argument(
-        '-c', '--constraints_file', type=str, default=CONSTRAINTS_DEFAULT,
-        help='Path to the constraints yaml file used for modeling. Default is '
-             'adc_data/constraints.yaml')
-
-    parser.add_argument(
         '-d', '--download_survey', action='store_true',
         help='Download the most recent ADC survey from Boris Murmann\'s '
              'website. Script will not download if current download is <= 6 '
@@ -51,14 +40,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.download_survey or args.download_force:
-        murmannsurvey.refresh_xls(0 if args.download_force else 183)
+    if args.download_survey or args.download_force or args.generate_model:
+        xls = murmannsurvey.refresh_xls(0 if args.download_force else 183)
+        murmannsurvey.xls_to_csv(xls, args.adc_list)
 
     if args.generate_model:
-        with open(args.constraints_file) as f:
-            constraints = yaml.load(f.read(), Loader=yaml.FullLoader)
         data = model.read_input_data(args.adc_list)
-        model.build_model(data, constraints, MODEL_DEFAULT)
+        model.build_model(data, MODEL_DEFAULT, False)
 
     if len(sys.argv) == 1:
         parser.print_help()

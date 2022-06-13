@@ -4,15 +4,16 @@ import re
 from typing import Dict
 
 # Need to add this directory to path for proper imports
+import yaml
+
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(SCRIPT_DIR)
-from optimizer import ADCRequest, Model
+from optimizer import ADCRequest
+from headers import *
 
 MODEL_FILE = os.path.join(SCRIPT_DIR, 'adc_data/model.yaml')
-# Accuracy values are from correlation coeffs. of actual vs. predicted ADC
-# characteristics at the time of writing this script.
-AREA_ACCURACY = 69
-ENERGY_ACCURACY = 82
+AREA_ACCURACY = 70
+ENERGY_ACCURACY = 70
 
 
 # ==============================================================================
@@ -45,9 +46,6 @@ def unit_check(key, attributes, default, my_scale, accelergy_scale):
 def adc_attr_to_request(attributes):
     """ Creates an ADC Request from a list of attributes """
 
-    def check(attr, default):
-        return default if attr not in attributes else attributes[attr]
-
     def checkerr(attr, numeric):
         assert attr in attributes, f'No attribute found: {attr}'
         if numeric and isinstance(attributes[attr], str):
@@ -56,19 +54,16 @@ def adc_attr_to_request(attributes):
             return float(v[0])
         return attributes[attr]
 
+    try:
+        n_adc = int(  checkerr('n_adc', numeric=True))
+    except AssertionError:
+        n_adc = int(  checkerr('n_components', numeric=True))
+
     r = ADCRequest(
         bits                 =float(checkerr('resolution', numeric=True)),
         tech                 =float(checkerr('technology', numeric=True)),
-        channel_count        =int(  check('channels', 1)),
-        energy_area_tradeoff =float(check('energy_area_tradeoff', .5)),
-        max_share_count      =int(  check('max_share_count', 0)),
-        adc_per_channel      =int(  check('adc_per_channel', 0)),
-        channel_per_adc      =int(  check('channel_per_adc', 0)),
-        latency              =float(unit_check('adc_latency', attributes, 0, 1, 10 ** -9)), # We use seconds, accelergy uses nanoseconds
-        throughput           =float(check('adc_throughput', 0)),
-        area_budget          =      unit_check('area_budget', attributes, None, 10 ** -12, 10 ** -12),  # We use um^2, accelergy uses um^2
-        energy_budget        =      unit_check('energy_budget', attributes, None, 10 ** -12, 10 ** -12),  # We use pJ, accelergy uses pJ
-        allow_extrapolation  =      check('allow_extrapolation', True),
+        throughput           =float(checkerr('throughput', numeric=True)),
+        n_adc                =n_adc,
     )
     return r
 
@@ -88,10 +83,15 @@ class AnalogEstimator:
     def __init__(self):
         self.estimator_name = 'Analog Estimator'
         if not os.path.exists(MODEL_FILE):
-            print('Running first-time Analog plugin setup.')
-            print('Generating ADC models.')
-            os.system('python3 {os.path.join(SCRIPT_DIR, run.py} -g')
-        self.model = Model(MODEL_FILE)
+            print(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
+            os.system(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
+        if not os.path.exists(MODEL_FILE):
+            print(f'ERROR: Could not find model file: {MODEL_FILE}')
+            print(f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
+                  f'-g" to generate a model.')
+            sys.exit(1)
+        with open(MODEL_FILE, 'r') as f:
+            self.model = yaml.safe_load(f)
 
     def primitive_action_supported(self, interface):
         """
@@ -139,13 +139,11 @@ class AnalogEstimator:
                 and str(action_name).lower() == 'convert':
             try:
                 r = adc_attr_to_request(attributes)  # Errors if no match
-                r.optimize(self.model)
-                energy_per_op = r.energy_per_op
-                assert r.energy_per_op, 'Could not find ADC for request.'
                 print(f'Info: Analog Plug-in... Accelergy requested ADC energy'
                       f' estimation with attributes: {dict_to_str(attributes)}')
-                print(f'Info: Generated model uses {r.adc_count} ADCs at '
-                      f'{energy_per_op} pJ/op.')
+                energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
+                assert energy_per_op, 'Could not find ADC for request.'
+                print(f'Info: Generated model uses {energy_per_op:2E} pJ/op.')
                 return energy_per_op
             except AssertionError as e:
                 print(f'Warn: Analog Plug-in could not generate ADC. {e}')
@@ -192,15 +190,33 @@ class AnalogEstimator:
         if str(class_name).lower() == 'adc':
             try:
                 r = adc_attr_to_request(attributes)  # Errors if no match
-                r.optimize(self.model)
-                assert r.area_per_channnel, 'Could not find ADC for request.'
                 print(f'Info: Analog Plug-in... Accelergy requested ADC energy'
                       f' estimation with attributes: {dict_to_str(attributes)}')
-                print(f'Info: Generated model uses {r.adc_count} ADCs at '
-                      f'{r.area_per_channnel * r.channel_count:.3} um^2 total.')
-                return r.area_per_channnel * r.channel_count  # mm^2 -> um^2
+                area = r.area(self.model) # um^2 -> mm^2
+                print(f'Info: Generated model uses {area:2E} mm^2 total.')
+                return area
             except AssertionError as e:
                 print(f'Warn: Analog Plug-in could not generate ADC. {e}')
                 print(f'Warn: Attributes given: {dict_to_str(attributes)}')
 
         return 0  # if not supported, accuracy is 0
+
+
+if __name__ == '__main__':
+    bits = 8
+    technode = 16
+    throughput = 512e7
+    n_adc = 32
+    attrs = {
+        'class_name': 'ADC',
+        'action_name': 'convert',
+        'attributes': {
+            'resolution': bits,
+            'technology': technode,
+            'throughput': throughput,
+            'n_adc': n_adc
+        }
+    }
+    e = AnalogEstimator()
+    e.estimate_energy(attrs)
+    e.estimate_area(attrs)

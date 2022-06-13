@@ -1,38 +1,13 @@
-area/energy tradeoff:
-  model:
-    area coeff: -0.5156200639406561
-    intercept: -3.579323048126698
-  constraints:
-    area (um^2):
-      min value: -3.1082063027034526
-      max value: 0.23231222472121027
-    energy (pJ/op):
-      min value: -3.6991078922916447
-      max value: -1.976669515585994
-  comments: 'This area/energy tradeoff linear model operates on log scaled adc_data
-    after values have been scaled for tech node, # bits, and frequency.'
-design param model:
-  area (um^2):
-    frequency (Hz): 0.2800944727305861
-    tech node (nm): 1.764721099907862
-    number of bits: 0.18009535478470218
-    intercept: -2.725739841238296
-  energy (pJ/op):
-    frequency (Hz): 0.13434295012555533
-    tech node (nm): 2.059435893658068
-    number of bits: 0.5184388357068157
-    intercept: -11.975609444780655
-  comments: 'This model scales energy/area of ADCs based on tech node, # bits, and
-    frequency. All values are log scaled except # bits.'
-constraints:
-  frequency (Hz):
-    min value: 14.508657738524219
-    max value: 22.33270374938051
-  tech node (nm):
-    min value: 3.332204510175204
-    max value: 5.19295685089021
-  number of bits:
-    min value: 5.022603701459202
-    max value: 15.337190436084462
-  comments: 'Ranges for which this model is valid. All values are log scaled except
-    # bits.'
+area (um^2):
+  frequency (Hz): 0.06665851895885958
+  tech node (nm): 0.797323960429599
+  number of bits: -0.13437278622014803
+  energy (pJ/op): 0.4236571760437834
+  intercept: 4.850567073004403
+frequency (Hz):
+  max value: 23.495854559186192
+FOMS_hf [dB]:
+  frequency (Hz): -6.460790934271676
+  max value: 180.14159078904734
+  intercept: 302.7387019052544
+comments: Tech node, area, and frequency are log-base-e-scaled.

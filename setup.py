@@ -2,16 +2,21 @@ from setuptools import setup
 import os
 from os import path
 
+
 def readme():
-      with open('README.md') as f:
-            return f.read()
+    with open('README.md') as f:
+        return f.read()
+
 
 ALLOWED_FILETYPES = ['.py', '.yaml', '.csv', '.xls', '.txt']
+
+
 def listdir(d=''):
-	d = os.path.join('./', d)
-	files = [os.path.join(d, f) for f in os.listdir(d)]
-	files = [f for f in files if path.isfile(f)]
-	return [f for f in files if any(a in f for a in ALLOWED_FILETYPES)]
+    d = os.path.join('./', d)
+    files = [os.path.join(d, f) for f in os.listdir(d)]
+    files = [f for f in files if path.isfile(f)]
+    return [f for f in files if any(a in f for a in ALLOWED_FILETYPES)]
+
 
 setup(
       name='accelergy-analog-plug-in',
@@ -27,7 +32,7 @@ setup(
       author='Tanner Andrulis',
       author_email='Andrulis@mit.edu',
       license='MIT',
-      install_requires = ['PyYAML', 'numpy', 'pandas', 'regex', 'sklearn'],
+      install_requires = ['PyYAML', 'numpy', 'pandas', 'regex', 'sklearn', 'xlrd'],
       python_requires = '>=3.8',
       data_files=[
                   ('share/accelergy/estimation_plug_ins/accelergy-analog-plug-in', listdir()),

@@ -9,11 +9,9 @@ ADC list for user use.
 # Available: http://web.stanford.edu/~murmann/adcsurvey.html.
 
 from urllib import request, error
-import regex as re
-import os
+import re
 from typing import List
 from datetime import datetime, timedelta
-import math
 
 import pandas as pd
 
@@ -31,28 +29,12 @@ SURVEY_NAME_FORMAT = '%Y_%m_%d-%H_%M_%S_%f'
 TITLE_COLUMN = 'TITLE'
 BIT_INFERENCE_COLUMNS = ['COMMENTS', 'TITLE', 'ABSTRACT']  # Where to bit info
 BIT_INFERENCE_REGEX = r'(?:^|[^.\d])(\d+)[^\w\.]*b(?:it)?(?!\w)'
-SNR_COLUMNS = ['SFDR [dB]', 'DR [dB]', 'SNDR_hf [dB]',	'SNR [dB]', '-THD [dB]']
-
-
-def infer_bits(row: pd.DataFrame) -> float or None:
-    """
-    Finds a number of bits mentioned, or refers to design specifications if
-    none present.
-    :param row: Dataframe row with ADC info
-    :return: Inferred voltage value
-    """
-    v = None
-    for col in SNR_COLUMNS:
-        if not row[col] or pd.isna(row[col]):
-            continue
-        f = (float(row[col]) - 10 * math.log(1.5, 10)) / (20 * math.log(2, 10))
-        v = max(v, f) if v is not None else f
-    return v
 
 
 def fetch_xls() -> List:
-    """ Downloads Murmann's ADC Survey from internet. Returns list of files
-        storing any new downloads if successful.
+    """
+    Downloads Murmann's ADC Survey from internet. Returns list of files
+    storing any new downloads if successful.
     """
     # Parse excel links from Murmann's website
     try:
@@ -84,7 +66,7 @@ def fetch_xls() -> List:
     return downloaded
 
 
-def refresh_xls(interval: int) -> List:
+def refresh_xls(interval: int) -> str:
     """ If current survey is >= interval days old, tries to redownload. """
     latest = None
     latest_str = None
@@ -106,10 +88,11 @@ def refresh_xls(interval: int) -> List:
 
     if not latest or latest < datetime.now() - timedelta(days=interval):
         print('Downloading new survey.')
-        return fetch_xls()
-
+        found = fetch_xls()
+        assert found, f'Failed to download any new surveys.'
+        return found[0]
     else:
-        return [os.path.join(f'{SURVEY_DIR}', f'{latest_str}.xls')]
+        return os.path.join(f'{SURVEY_DIR}', f'{latest_str}.xls')
 
 
 def xls_to_csv(xls: str, outfile: str):
@@ -119,17 +102,21 @@ def xls_to_csv(xls: str, outfile: str):
     xls = pd.concat([isscc, vsli])
 
     csv = pd.DataFrame()
-    xls[ENOB] = xls.apply(infer_bits, axis=1)
     numeric_cols = [
-        'fs [Hz]', 'AREA [mm^2]', 'TECHNOLOGY', 'P [W]', ENOB, 'P/fsnyq [pJ]',
+        'fs [Hz]', 'AREA [mm^2]', 'TECHNOLOGY', 'P [W]', 'P/fsnyq [pJ]', FOMS,
+        SNDR
     ]
     for c in numeric_cols:
         xls = xls[pd.to_numeric(xls[c], errors='coerce').notnull()]
+    xls = xls[xls['ARCHITECTURE'].str.lower().str.contains
+              ('|'.join(a.lower() for a in ALLOWED_ADC_TYPES))]
     csv[FREQ] = xls['fs [Hz]']
-    csv[ENOB] = xls[ENOB]
     csv[TECH] = xls['TECHNOLOGY'] * 10 ** 3  # um >> nm
     csv[AREA] = xls['AREA [mm^2]'] * 10 ** 6  # mm^2 -> um^2
     csv[ENRG] = xls['P/fsnyq [pJ]']
+    csv[SNDR] = xls[SNDR]
+    csv[ENOB] = xls[SNDR].apply(sndr2bits)
+    csv[FOMS] = xls[FOMS]
     csv.reset_index(inplace=True, drop=True)
     if os.path.exists(outfile):
         os.remove(outfile)
