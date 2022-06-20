@@ -193,7 +193,7 @@ class AnalogEstimator:
                 print(f'Info: Analog Plug-in... Accelergy requested ADC energy'
                       f' estimation with attributes: {dict_to_str(attributes)}')
                 area = r.area(self.model) # um^2 -> mm^2
-                print(f'Info: Generated model uses {area:2E} mm^2 total.')
+                print(f'Info: Generated model uses {area:2E} um^2 total.')
                 return area
             except AssertionError as e:
                 print(f'Warn: Analog Plug-in could not generate ADC. {e}')
