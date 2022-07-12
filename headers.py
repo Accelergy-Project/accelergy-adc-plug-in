@@ -17,7 +17,7 @@ ENRG = 'energy (pJ/op)'  # pJ / op
 FOMS = 'FOMS_hf [dB]'
 SNDR = 'SNDR_plot [dB]'
 ALL_PARAMS = DESIGN_PARAMS + [AREA, ENRG, FOMS]
-AREA_CALCULATE_PARAMS = DESIGN_PARAMS
+AREA_CALCULATE_PARAMS = [TECH, FREQ, ENRG]
 LOGSCALE_PARAMS = [FREQ, TECH, AREA, ENRG]
 
 # For fitted energy / area
@@ -34,6 +34,7 @@ ALLOWED_ADC_TYPES = ['SAR', 'Single Slope', 'Flash']
 # ==============================================================================
 MIN = 'min value'
 MAX = 'max value'
+MAX_BY_ENOB = 'max_by_enob'
 AREA_ENRG_TRADEOFF = 'area/energy tradeoff'
 AREA_ENRG_MODEL = 'model'
 AREA_COEFF = 'area coeff'

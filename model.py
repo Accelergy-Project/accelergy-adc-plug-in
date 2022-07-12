@@ -36,7 +36,9 @@ def get_energy(params: Dict, model: Dict, print_info: bool,
         f'frequency {math.exp(model[FREQ][MAX]):2E} in the model. Please ' \
         f'use a lower frequency ADC or enable extrapolation.'
     foms = sum(params[k] * model[FOMS][k] for k in [INTERCEPT, FREQ])
-    foms = min(foms, model[FOMS][MAX])
+    foms_max_by_enob = model[FOMS][MAX_BY_ENOB]
+    foms_max = foms_max_by_enob[max(min(math.ceil(params[ENOB]), len(foms_max_by_enob) - 1), 0)]
+    foms = min(foms, foms_max)
     sndr = bits2sndr(params[ENOB])
     if print_info:
         print(f'\tADC with frequency {math.exp(params[FREQ]):2E} has a SNDR of '
@@ -59,7 +61,7 @@ def mvgress(x: pd.DataFrame, y: pd.Series) \
     return y - lm.predict(x_), lm.coef_, lm.intercept_
 
 
-def get_pareto(x: pd.Series, y: pd.Series, xpos=True, ypos=True) \
+def get_pareto(x: pd.Series, y: pd.Series, x_positive=True, y_positive=True) \
         -> pd.DataFrame:
     """
     Returns the pareto set of x, y.
@@ -70,8 +72,8 @@ def get_pareto(x: pd.Series, y: pd.Series, xpos=True, ypos=True) \
         return a >= b if pos else a <= b
     chosen = []
     for i in range(len(x)):
-        if all(more_value(x[i], x[j], xpos) or
-               more_value(y[i], y[j], ypos) for j in range(len(x))):
+        if all(more_value(x[i], x[j], x_positive) or
+               more_value(y[i], y[j], y_positive) for j in range(len(x))):
             chosen.append(i)
 
     return x[chosen], y[chosen]
@@ -96,6 +98,12 @@ def build_model(source_data: pd.DataFrame,
 
     # ENERGY
     foms_max = logscale_data[FOMS].quantile(0.95)
+        
+    residuals, coeffs, intercept = mvgress(logscale_data[ENOB], logscale_data[FOMS])
+    intercept += pd.Series(residuals).quantile(0.95)
+    foms_max_by_enob_x = np.arange(math.ceil(np.max(logscale_data[ENOB]))).reshape(-1, 1)
+    foms_max_by_enob = [float(intercept + coeffs[0] * x) for x in foms_max_by_enob_x]
+
     freq_max = logscale_data[FREQ].quantile(0.95)
     fr = logscale_data[FREQ]
     fs = logscale_data[FOMS]
@@ -123,10 +131,18 @@ def build_model(source_data: pd.DataFrame,
     areamodel['intercept'] = ar_intercept + q
 
     freqmodel = {MAX: freq_max}
-    fomsmodel = {FREQ: foms_coeffs[0], MAX: foms_max, INTERCEPT: foms_intercept}
+    fomsmodel = {
+        FREQ: foms_coeffs[0], 
+        MAX: foms_max,
+        INTERCEPT: foms_intercept, 
+        MAX_BY_ENOB: foms_max_by_enob
+    }
 
     model = {AREA: areamodel, FREQ: freqmodel, FOMS: fomsmodel,
-             COMMENTS: 'Tech node, area, and frequency are log-base-e-scaled.'}
+             COMMENTS: 'Tech node, area, and frequency are log-base-e-scaled. ' \
+                       'max_by_enob was also considered for limiting the frequency of ' \
+                       'ADCs, but max ADC frequency was plenty for realistic PIM ' \
+                       'settings at reasonable ADC resolutions.'}
 
     for k in model:
         if isinstance(model[k], dict):
@@ -156,21 +172,46 @@ def read_input_data(path: str) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('adc_data/adc_list.csv')
-    model = build_model(df, 'adc_data/model.yaml')
+    # df = pd.read_csv('adc_data/adc_list.csv')
+    # model = build_model(df, 'adc_data/model.yaml')
+    with open('./adc_data/model.yaml', 'r') as f:
+        model = yaml.safe_load(f)
 
     prev = 1
     prev2 = 1
     for r in range(4, 12):
-        for f in [5e8, 1e9, 2e9, 3e9]:
+        for f in [1e8, 2.5e8, 5e8, 1e9, 2e9]:
             f_active = f
             params = {FREQ: math.log(f_active), ENOB: r, TECH: math.log(32)}
             e = get_energy(params, model, False, False)
+            params[ENRG] = e
+            a = get_area(params, model)
             p = e * f_active
-            print(f'{r} bit ADC running at frequency {f_active:.2E} aka '
-                  f'exp({math.log(f_active):.2E}): {e:.2E}J/op, '
-                  f'+{e / prev:.2f}. '
-                  f'{math.exp(get_area(params, model)):.2E}um^2. '
-                  f'+{math.exp(get_area(params, model)) / prev2:.2f}')
+            # print(r)
+            # print(f_active)
+            # print(e)
+            # print(e / prev)
+            # print(get_area(params, model))
+            # print(get_area(params, model) / prev2)
+            #print(f'{r} bit ADC running at frequency {f_active:.2E} aka '
+            #      f'exp({math.log(f_active):.2E}): {e*10**12:.2E}pJ/op, '
+            #      f'+{e / prev:.2f}. '
+            #      f'{get_area(params, model):.2E}um^2. '
+            #      f'+{get_area(params, model) / prev2:.2f}')
+            print(f'{r}, {f_active:.2E}, {a:.2E}')
             prev = e
-            prev2 = math.exp(get_area(params, model))
+            prev2 = get_area(params, model)
+
+    resolutions = [x for x in range(4, 12)]
+    frequencies = [1e7] + [5e7] + [1e8 * x for x in range(1, 21)]
+    print(',' + ','.join([f'{x/1e6}' for x in frequencies]))
+    for r in resolutions:
+        energies = []
+        areas = []
+        for f in frequencies:
+            params = {FREQ: math.log(f), ENOB: r, TECH: math.log(32)}
+            params[ENRG] = math.log(get_energy(params, model, False, False) * 1e12)
+            energies.append(math.exp(params[ENRG]))
+            areas.append(get_area(params, model))
+            
+        print(f'{r},' + ','.join([f'{e:.2E}' for e in areas]))

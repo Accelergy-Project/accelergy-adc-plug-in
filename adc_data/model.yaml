@@ -1,13 +1,32 @@
 area (um^2):
-  frequency (Hz): 0.06665851895885958
-  tech node (nm): 0.797323960429599
-  number of bits: -0.13437278622014803
-  energy (pJ/op): 0.4236571760437834
-  intercept: 4.850567073004403
+  tech node (nm): 1.0796421425948621
+  frequency (Hz): 0.13805623872398015
+  energy (pJ/op): 0.3143653757900442
+  intercept: 1.692464809006712
 frequency (Hz):
   max value: 23.495854559186192
 FOMS_hf [dB]:
   frequency (Hz): -6.460790934271676
   max value: 180.14159078904734
   intercept: 302.7387019052544
-comments: Tech node, area, and frequency are log-base-e-scaled.
+  max_by_enob:
+  - 130.83663471836203
+  - 135.27599783416645
+  - 139.71536094997083
+  - 144.15472406577524
+  - 148.59408718157962
+  - 153.03345029738404
+  - 157.47281341318842
+  - 161.91217652899283
+  - 166.35153964479724
+  - 170.79090276060163
+  - 175.230265876406
+  - 179.66962899221042
+  - 184.10899210801483
+  - 188.54835522381921
+  - 192.98771833962363
+  - 197.42708145542804
+  - 201.86644457123242
+comments: Tech node, area, and frequency are log-base-e-scaled. max_by_enob was also
+  considered for limiting the frequency of ADCs, but max ADC frequency was plenty
+  for realistic PIM settings at reasonable ADC resolutions.
