@@ -42,5 +42,5 @@ class ADCRequest:
         n_adc = self.n_adc if n_adc_override == -1 else n_adc_override
         design_params = {ENOB: self.bits, TECH: math.log(self.tech),
                          FREQ: math.log(self.throughput / n_adc)}
-        design_params[ENRG] = get_energy(design_params, model, False, False)
+        design_params[ENRG] = get_energy(design_params, model, False, False) * 1e12
         return get_area(design_params, model) * n_adc
