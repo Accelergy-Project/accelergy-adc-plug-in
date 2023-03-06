@@ -17,7 +17,7 @@ AREA_ACCURACY = 75
 ENERGY_ACCURACY = 75
 
 CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc']
-ACTION_NAMES = ['convert', 'drive', 'read', 'sample']
+ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'idle']
 
 # ==============================================================================
 # Input Parsing
@@ -106,7 +106,7 @@ class AnalogEstimator(AccelergyPlugIn):
         arguments = query.action_args
 
 
-        if str(class_name).lower() == 'adc' and str(action_name).lower() == 'convert':
+        if str(class_name).lower() in CLASS_NAMES and str(action_name).lower() in ACTION_NAMES:
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(ENERGY_ACCURACY)
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
@@ -123,6 +123,8 @@ class AnalogEstimator(AccelergyPlugIn):
                                     f'is not supported.')
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
+        if 'idle' in str(action_name).lower():
+            return Estimation(0, 'p')
         self.logger.info(f'Accelergy requested ADC energy'
                             f' estimation with attributes: {dict_to_str(attributes)}')
         energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
