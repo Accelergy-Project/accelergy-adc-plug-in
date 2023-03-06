@@ -16,6 +16,8 @@ MODEL_FILE = os.path.join(SCRIPT_DIR, 'adc_data/model.yaml')
 AREA_ACCURACY = 75
 ENERGY_ACCURACY = 75
 
+CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc']
+ACTION_NAMES = ['convert', 'drive', 'read', 'sample']
 
 # ==============================================================================
 # Input Parsing
@@ -115,16 +117,18 @@ class AnalogEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-        if str(class_name).lower() == 'adc' and str(action_name).lower() == 'convert':
-            r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
-            self.logger.info(f'Accelergy requested ADC energy'
-                             f' estimation with attributes: {dict_to_str(attributes)}')
-            energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
-            assert energy_per_op, 'Could not find ADC for request.'
-            self.logger.info(f'Generated model uses {energy_per_op:2E} pJ/op.')
-            return Estimation(energy_per_op, 'p') # energy is in pJ)
-        raise NotImplementedError(f'Energy estimation for {class_name}.{action_name}'
-                                  f'is not supported.')
+        if str(class_name).lower() not in CLASS_NAMES or \
+            str(action_name).lower() not in ACTION_NAMES:
+            raise NotImplementedError(f'Energy estimation for {class_name}.{action_name}'
+                                    f'is not supported.')
+
+        r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
+        self.logger.info(f'Accelergy requested ADC energy'
+                            f' estimation with attributes: {dict_to_str(attributes)}')
+        energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
+        assert energy_per_op, 'Could not find ADC for request.'
+        self.logger.info(f'Generated model uses {energy_per_op:2E} pJ/op.')
+        return Estimation(energy_per_op, 'p') # energy is in pJ)
 
     def primitive_area_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
         class_name = query.class_name
@@ -132,7 +136,7 @@ class AnalogEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-        if str(class_name).lower() == 'adc':
+        if str(class_name).lower() in CLASS_NAMES:
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(AREA_ACCURACY)
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
@@ -143,14 +147,15 @@ class AnalogEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-        if str(class_name).lower() == 'adc':
-            r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
-            self.logger.info(f'Accelergy requested ADC energy'
-                             f' estimation with attributes: {dict_to_str(attributes)}')
-            area = r.area(self.model) # um^2 -> mm^2
-            self.logger.info(f'Generated model uses {area:2E} um^2 total.')
-            return Estimation(area, 'u^2') # area is in um^2
-        raise NotImplementedError(f'Area estimation for {class_name} is not supported.')
+        if str(class_name).lower() not in CLASS_NAMES:
+            raise NotImplementedError(f'Area estimation for {class_name} is not supported.')
+
+        r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
+        self.logger.info(f'Accelergy requested ADC energy'
+                            f' estimation with attributes: {dict_to_str(attributes)}')
+        area = r.area(self.model) # um^2 -> mm^2
+        self.logger.info(f'Generated model uses {area:2E} um^2 total.')
+        return Estimation(area, 'u^2') # area is in um^2
 
 if __name__ == '__main__':
     bits = 8
