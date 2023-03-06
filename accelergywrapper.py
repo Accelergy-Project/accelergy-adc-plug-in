@@ -1,11 +1,12 @@
+import logging
 import sys
 import os
 import re
 from typing import Dict
+import yaml
+from accelergy.plug_in_interface.interface import *
 
 # Need to add this directory to path for proper imports
-import yaml
-
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(SCRIPT_DIR)
 from optimizer import ADCRequest
@@ -43,7 +44,7 @@ def unit_check(key, attributes, default, my_scale, accelergy_scale):
     return v
 
 
-def adc_attr_to_request(attributes):
+def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
     """ Creates an ADC Request from a list of attributes """
 
     def checkerr(attr, numeric):
@@ -64,6 +65,7 @@ def adc_attr_to_request(attributes):
         tech                 =float(checkerr('technology', numeric=True)),
         throughput           =float(checkerr('throughput', numeric=True)),
         n_adc                =n_adc,
+        logger               =logger,
     )
     return r
 
@@ -79,128 +81,76 @@ def dict_to_str(attributes: Dict) -> str:
 # ==============================================================================
 # Wrapper Class
 # ==============================================================================
-class AnalogEstimator:
+class AnalogEstimator(AccelergyPlugIn):
     def __init__(self):
         self.estimator_name = 'Analog Estimator'
         if not os.path.exists(MODEL_FILE):
-            print(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
+            self.logger.info(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
             os.system(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
         if not os.path.exists(MODEL_FILE):
-            print(f'ERROR: Could not find model file: {MODEL_FILE}')
-            print(f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
-                  f'-g" to generate a model.')
-            sys.exit(1)
+            self.logger.error(f'ERROR: Could not find model file: {MODEL_FILE}')
+            self.logger.error(f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
+                              f'-g" to generate a model.')
         with open(MODEL_FILE, 'r') as f:
             self.model = yaml.safe_load(f)
 
-    def primitive_action_supported(self, interface):
-        """
-        :param interface:
-        - contains four keys:
-        1. class_name : string
-        2. attributes: dictionary of name: value
-        3. action_name: string
-        4. arguments: dictionary of name: value
-        :type interface: dict
-        :return return the accuracy if supported, return 0 if not
-        :rtype: int
-        """
-        class_name = interface['class_name']
-        attributes = interface['attributes']
-        action_name = interface['action_name']
+    def get_name(self) -> str:
+        return self.estimator_name
 
-        if str(class_name).lower() == 'adc' \
-                and str(action_name).lower() == 'convert':
-            try:
-                adc_attr_to_request(attributes)  # Errors if no match
-                return ENERGY_ACCURACY
-            except AssertionError as e:
-                print(f'Warn: Analog Plug-in could not generate ADC. {e}')
-                print(f'Warn: Attributes given: {attributes}')
+    def primitive_action_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
+        class_name = query.class_name
+        attributes = query.class_attrs
+        action_name = query.action_name
+        arguments = query.action_args
 
-        return 0  # if not supported, accuracy is 0
 
-    def estimate_energy(self, interface):
-        """
-        :param interface:
-        - contains four keys:
-        1. class_name : string
-        2. attributes: dictionary of name: value
-        3. action_name: string
-        4. arguments: dictionary of name: value
-       :return the estimated energy
-       :rtype float
-        """
-        class_name = interface['class_name']
-        attributes = interface['attributes']
-        action_name = interface['action_name']
+        if str(class_name).lower() == 'adc' and str(action_name).lower() == 'convert':
+            adc_attr_to_request(attributes, self.logger)  # Errors if no match
+            return AccuracyEstimation(ENERGY_ACCURACY)
+        return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
-        if str(class_name).lower() == 'adc' \
-                and str(action_name).lower() == 'convert':
-            try:
-                r = adc_attr_to_request(attributes)  # Errors if no match
-                print(f'Info: Analog Plug-in... Accelergy requested ADC energy'
-                      f' estimation with attributes: {dict_to_str(attributes)}')
-                energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
-                assert energy_per_op, 'Could not find ADC for request.'
-                print(f'Info: Generated model uses {energy_per_op:2E} pJ/op.')
-                return energy_per_op
-            except AssertionError as e:
-                print(f'Warn: Analog Plug-in could not generate ADC. {e}')
-                print(f'Warn: Attributes given: {dict_to_str(attributes)}')
+    def estimate_energy(self, query: AccelergyQuery) -> Estimation:
+        class_name = query.class_name
+        attributes = query.class_attrs
+        action_name = query.action_name
+        arguments = query.action_args
 
-        return 0  # if not supported, accuracy is 0
+        if str(class_name).lower() == 'adc' and str(action_name).lower() == 'convert':
+            r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
+            self.logger.info(f'Accelergy requested ADC energy'
+                             f' estimation with attributes: {dict_to_str(attributes)}')
+            energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
+            assert energy_per_op, 'Could not find ADC for request.'
+            self.logger.info(f'Generated model uses {energy_per_op:2E} pJ/op.')
+            return Estimation(energy_per_op, 'p') # energy is in pJ)
+        raise NotImplementedError(f'Energy estimation for {class_name}.{action_name}'
+                                  f'is not supported.')
 
-    def primitive_area_supported(self, interface):
-        """
-        :param interface:
-        - contains two keys:
-        1. class_name : string
-        2. attributes: dictionary of name: value
-        :type interface: dict
-        :return return the accuracy if supported, return 0 if not
-        :rtype: int
-        """
-        class_name = interface['class_name']
-        attributes = interface['attributes']
+    def primitive_area_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
+        class_name = query.class_name
+        attributes = query.class_attrs
+        action_name = query.action_name
+        arguments = query.action_args
 
         if str(class_name).lower() == 'adc':
-            try:
-                adc_attr_to_request(attributes)  # Errors if no match
-                return AREA_ACCURACY
-            except AssertionError as e:
-                print(f'Warn: Analog Plug-in could not generate ADC. {e}')
-                print(f'Warn: Attributes given: {dict_to_str(attributes)}')
+            adc_attr_to_request(attributes, self.logger)  # Errors if no match
+            return AccuracyEstimation(AREA_ACCURACY)
+        return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
-        return 0  # if not supported, accuracy is 0
-
-    def estimate_area(self, interface):
-        """
-        :param interface:
-        - contains two keys:
-        1. class_name : string
-        2. attributes: dictionary of name: value
-        :type interface: dict
-        :return the estimated area
-        :rtype: float
-        """
-        class_name = interface['class_name']
-        attributes = interface['attributes']
+    def estimate_area(self, query: AccelergyQuery) -> Estimation:
+        class_name = query.class_name
+        attributes = query.class_attrs
+        action_name = query.action_name
+        arguments = query.action_args
 
         if str(class_name).lower() == 'adc':
-            try:
-                r = adc_attr_to_request(attributes)  # Errors if no match
-                print(f'Info: Analog Plug-in... Accelergy requested ADC energy'
-                      f' estimation with attributes: {dict_to_str(attributes)}')
-                area = r.area(self.model) # um^2 -> mm^2
-                print(f'Info: Generated model uses {area:2E} um^2 total.')
-                return area
-            except AssertionError as e:
-                print(f'Warn: Analog Plug-in could not generate ADC. {e}')
-                print(f'Warn: Attributes given: {dict_to_str(attributes)}')
-
-        return 0  # if not supported, accuracy is 0
-
+            r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
+            self.logger.info(f'Accelergy requested ADC energy'
+                             f' estimation with attributes: {dict_to_str(attributes)}')
+            area = r.area(self.model) # um^2 -> mm^2
+            self.logger.info(f'Generated model uses {area:2E} um^2 total.')
+            return Estimation(area, 'u^2') # area is in um^2
+        raise NotImplementedError(f'Area estimation for {class_name} is not supported.')
 
 if __name__ == '__main__':
     bits = 8
