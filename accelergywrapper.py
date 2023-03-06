@@ -12,8 +12,8 @@ from optimizer import ADCRequest
 from headers import *
 
 MODEL_FILE = os.path.join(SCRIPT_DIR, 'adc_data/model.yaml')
-AREA_ACCURACY = 70
-ENERGY_ACCURACY = 70
+AREA_ACCURACY = 75
+ENERGY_ACCURACY = 75
 
 
 # ==============================================================================
