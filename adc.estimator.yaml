@@ -1,0 +1,5 @@
+version: 0.0
+ADCEstimator:
+  module:  accelergywrapper
+  class:   ADCEstimator
+  parameter: none

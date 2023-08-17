@@ -1,0 +1,3 @@
+[submodule "adc_data/ADC-survey"]
+	path = adc_data/ADC-survey
+	url = https://github.com/bmurmann/ADC-survey.git

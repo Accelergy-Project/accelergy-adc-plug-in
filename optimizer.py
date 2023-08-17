@@ -2,6 +2,10 @@ import logging
 from typing import Dict
 from headers import *
 from model import get_energy, get_area
+import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ADCRequest:
@@ -24,14 +28,14 @@ class ADCRequest:
         """ Returns energy per operation in Joules. """
         design_params = {ENOB: self.bits, TECH: math.log(self.tech),
                          FREQ: math.log(self.throughput / self.n_adc)}
-        e_per_op = get_energy(design_params, model, True, False, self.logger)
+        e_per_op = get_energy(design_params, model, True)
 
         self.logger.info('\tAlternative designs:')
         for n_adc in range(max(self.n_adc - 5, 1), self.n_adc + 5):
             f = self.throughput / n_adc
             design_params[FREQ] = math.log(f)
             try:
-                e = get_energy(design_params, model, False, False, self.logger)
+                e = get_energy(design_params, model, True)
                 a = self.area(model, n_adc)
                 l = '\tCHOSEN > ' if n_adc == self.n_adc else '\t         '
                 self.logger.info(f'{l}{n_adc:2f} ADCs running at {f:2E}Hz: '
@@ -46,5 +50,6 @@ class ADCRequest:
         n_adc = self.n_adc if n_adc_override == -1 else n_adc_override
         design_params = {ENOB: self.bits, TECH: math.log(self.tech),
                          FREQ: math.log(self.throughput / n_adc)}
-        design_params[ENRG] = get_energy(design_params, model, False, False, self.logger) * 1e12
+        design_params[ENRG] = get_energy(
+            design_params, model, True) * 1e12
         return get_area(design_params, model) * n_adc

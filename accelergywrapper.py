@@ -9,19 +9,26 @@ from accelergy.plug_in_interface.interface import *
 # Need to add this directory to path for proper imports
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(SCRIPT_DIR)
-from optimizer import ADCRequest
+# fmt: off
 from headers import *
+from optimizer import ADCRequest
+import optimizer
+import model
+# fmt: on
 
 MODEL_FILE = os.path.join(SCRIPT_DIR, 'adc_data/model.yaml')
 AREA_ACCURACY = 75
 ENERGY_ACCURACY = 75
 
-CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc']
-ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'idle']
+CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc', 'array_adc',
+               'pim_array_adc', 'cim_array_adc', 'cim_adc']
+ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'idle', 'activate']
 
 # ==============================================================================
 # Input Parsing
 # ==============================================================================
+
+
 def unit_check(key, attributes, default, my_scale, accelergy_scale):
     """ Checks for a key in attributes & does unit conversions """
     if key not in attributes:
@@ -58,16 +65,32 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
         return attributes[attr]
 
     try:
-        n_adc = int(  checkerr('n_adc', numeric=True))
+        n_adc = int(checkerr('n_adc', numeric=True))
     except AssertionError:
-        n_adc = int(  checkerr('n_components', numeric=True))
+        n_adc = int(checkerr('n_components', numeric=True))
+
+    def try_check(keys, numeric):
+        for k in keys[:-1]:
+            try:
+                return checkerr(k, numeric)
+            except AssertionError:
+                pass
+        return checkerr(keys[-1], numeric)
+
+    resolution_names = []
+    for x0 in ['adc', '']:
+        for x1 in ['resolution', 'bits', 'n_bits']:
+            for x2 in ['adc', '']:
+                x = "_".join([x for x in [x0, x1, x2] if x != ''])
+                resolution_names.append(x)
+    resolution_names.append('resolution')
 
     r = ADCRequest(
-        bits                 =float(checkerr('resolution', numeric=True)),
-        tech                 =float(checkerr('technology', numeric=True)),
-        throughput           =float(checkerr('throughput', numeric=True)),
-        n_adc                =n_adc,
-        logger               =logger,
+        bits=try_check(resolution_names, numeric=True),
+        tech=float(checkerr('technology', numeric=True)),
+        throughput=float(checkerr('throughput', numeric=True)),
+        n_adc=n_adc,
+        logger=logger,
     )
     return r
 
@@ -83,21 +106,26 @@ def dict_to_str(attributes: Dict) -> str:
 # ==============================================================================
 # Wrapper Class
 # ==============================================================================
-class AnalogEstimator(AccelergyPlugIn):
+class ADCEstimator(AccelergyPlugIn):
     def __init__(self):
-        self.estimator_name = 'Analog Estimator'
+        super().__init__()
+        model.logger = self.logger
+        optimizer.logger = self.logger
+
         if not os.path.exists(MODEL_FILE):
-            self.logger.info(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
+            self.logger.info(
+                f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
             os.system(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
         if not os.path.exists(MODEL_FILE):
-            self.logger.error(f'ERROR: Could not find model file: {MODEL_FILE}')
+            self.logger.error(
+                f'ERROR: Could not find model file: {MODEL_FILE}')
             self.logger.error(f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
                               f'-g" to generate a model.')
         with open(MODEL_FILE, 'r') as f:
             self.model = yaml.safe_load(f)
 
     def get_name(self) -> str:
-        return self.estimator_name
+        return 'ADC Plug-In'
 
     def primitive_action_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
         class_name = query.class_name
@@ -105,10 +133,12 @@ class AnalogEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-
         if str(class_name).lower() in CLASS_NAMES and str(action_name).lower() in ACTION_NAMES:
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(ENERGY_ACCURACY)
+        self.logger.info(
+            f'ADC Plug-In does not support {class_name}.{action_name}. '
+            f'Supported classes: {CLASS_NAMES}, supported actions: {ACTION_NAMES}')
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
     def estimate_energy(self, query: AccelergyQuery) -> Estimation:
@@ -118,19 +148,19 @@ class AnalogEstimator(AccelergyPlugIn):
         arguments = query.action_args
 
         if str(class_name).lower() not in CLASS_NAMES or \
-            str(action_name).lower() not in ACTION_NAMES:
+                str(action_name).lower() not in ACTION_NAMES:
             raise NotImplementedError(f'Energy estimation for {class_name}.{action_name}'
-                                    f'is not supported.')
+                                      f'is not supported.')
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
         if 'idle' in str(action_name).lower():
             return Estimation(0, 'p')
         self.logger.info(f'Accelergy requested ADC energy'
-                            f' estimation with attributes: {dict_to_str(attributes)}')
+                         f' estimation with attributes: {dict_to_str(attributes)}')
         energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
         assert energy_per_op, 'Could not find ADC for request.'
         self.logger.info(f'Generated model uses {energy_per_op:2E} pJ/op.')
-        return Estimation(energy_per_op, 'p') # energy is in pJ)
+        return Estimation(energy_per_op, 'p')  # energy is in pJ)
 
     def primitive_area_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
         class_name = query.class_name
@@ -141,6 +171,10 @@ class AnalogEstimator(AccelergyPlugIn):
         if str(class_name).lower() in CLASS_NAMES:
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(AREA_ACCURACY)
+        self.logger.info(
+            f'ADC Plug-In does not support {class_name}.{action_name}. '
+            f'Supported classes: {CLASS_NAMES}.')
+
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
     def estimate_area(self, query: AccelergyQuery) -> Estimation:
@@ -150,14 +184,16 @@ class AnalogEstimator(AccelergyPlugIn):
         arguments = query.action_args
 
         if str(class_name).lower() not in CLASS_NAMES:
-            raise NotImplementedError(f'Area estimation for {class_name} is not supported.')
+            raise NotImplementedError(
+                f'Area estimation for {class_name} is not supported.')
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
         self.logger.info(f'Accelergy requested ADC energy'
-                            f' estimation with attributes: {dict_to_str(attributes)}')
-        area = r.area(self.model) # um^2 -> mm^2
+                         f' estimation with attributes: {dict_to_str(attributes)}')
+        area = r.area(self.model)  # um^2 -> mm^2
         self.logger.info(f'Generated model uses {area:2E} um^2 total.')
-        return Estimation(area, 'u^2') # area is in um^2
+        return Estimation(area, 'u^2')  # area is in um^2
+
 
 if __name__ == '__main__':
     bits = 8

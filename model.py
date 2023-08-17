@@ -1,10 +1,11 @@
 from typing import Dict, Tuple
 import yaml
 
-import pandas as pd
-from sklearn import linear_model
-import numpy as np
 from headers import *
+import logging
+import math
+
+logger = logging.getLogger(__name__)
 
 
 def foms_sndr2energy(foms: float, sndr: float) -> float:
@@ -24,45 +25,52 @@ def get_area(params: Dict, model: Dict) -> float:
     return math.exp(sum(params[k] * model[AREA][k] for k in model[AREA].keys()))
 
 
-def get_energy(params: Dict, model: Dict, print_info: bool,
-               allow_extrapolation: bool) -> float:
+def get_energy(params: Dict, model: Dict, allow_extrapolation: bool) -> float:
     """
     Returns the energy/convert of an ADC given its design parameters.
     """
     params = params.copy()
     params[INTERCEPT] = 1  # Multiply model intercept by 1
-    assert allow_extrapolation or params[FREQ] <= model[FREQ][MAX], \
+    warning_txt = \
         f'Frequency {math.exp(params[FREQ]):2E} is greater than the maximum ' \
         f'frequency {math.exp(model[FREQ][MAX]):2E} in the model. Please ' \
         f'use a lower frequency ADC or enable extrapolation.'
+    if not allow_extrapolation:
+        assert params[FREQ] <= model[FREQ][MAX], warning_txt
+    elif params[FREQ] > model[FREQ][MAX]:
+        logger.warning(warning_txt)
+
     foms = sum(params[k] * model[FOMS][k] for k in [INTERCEPT, FREQ])
     foms_max_by_enob = model[FOMS][MAX_BY_ENOB]
-    foms_max = foms_max_by_enob[max(min(math.ceil(params[ENOB]), len(foms_max_by_enob) - 1), 0)]
+    foms_max = foms_max_by_enob[max(
+        min(math.ceil(params[ENOB]), len(foms_max_by_enob) - 1), 0)]
     foms = min(foms, foms_max)
     sndr = bits2sndr(params[ENOB])
-    if print_info:
-        print(f'\tADC with frequency {math.exp(params[FREQ]):2E} has a SNDR of '
-              f'{sndr}dB and maximum Schreier FOM of {foms}')
+    # logger.info('ADC with frequency %2E has a SNDR of %2E dB and maximum Schreier FOM of %2E',
+    #             math.exp(params[FREQ]), sndr, foms)
     return foms_sndr2energy(foms, bits2sndr(params[ENOB]))
 
 
-def mvgress(x: pd.DataFrame, y: pd.Series) \
-        -> Tuple[pd.Series, np.ndarray, float]:
+def mvgress(x: 'pd.DataFrame', y: 'pd.Series') \
+        -> Tuple['pd.Series', 'np.ndarray', float]:
     """
     Returns the residuals, coeffs, and intercept of a multivariate linear
     regression.
     """
+    from sklearn import linear_model
+    import pandas as pd
+
     if isinstance(x, pd.Series):
         x = pd.DataFrame(x)
     lm = linear_model.LinearRegression()
     x_ = x
     lm.fit(x_, y)
-    print(f'Correlation: {lm.score(x_, y)}')
+    logger.info(f'Correlation: {lm.score(x_, y)}')
     return y - lm.predict(x_), lm.coef_, lm.intercept_
 
 
-def get_pareto(x: pd.Series, y: pd.Series, x_positive=True, y_positive=True) \
-        -> pd.DataFrame:
+def get_pareto(x: 'pd.Series', y: 'pd.Series', x_positive=True, y_positive=True) \
+        -> 'pd.DataFrame':
     """
     Returns the pareto set of x, y.
     """
@@ -79,11 +87,13 @@ def get_pareto(x: pd.Series, y: pd.Series, x_positive=True, y_positive=True) \
     return x[chosen], y[chosen]
 
 
-def build_model(source_data: pd.DataFrame,
+def build_model(source_data: 'pd.DataFrame',
                 output_file: str, show_pretty_plot=False) -> Dict:
+    import numpy as np
+    import pandas as pd
     # Ensure adc_data is valid
-    print('Building model. Source adc_data:')
-    print(source_data.head(5))
+    logger.info('Building model. Source adc_data:')
+    logger.info(source_data.head(5))
     for c in ALL_PARAMS:
         assert c in source_data, f'Missing adc_data column {c}!'
     for index, row in source_data.iterrows():
@@ -98,11 +108,14 @@ def build_model(source_data: pd.DataFrame,
 
     # ENERGY
     foms_max = logscale_data[FOMS].quantile(0.95)
-        
-    residuals, coeffs, intercept = mvgress(logscale_data[ENOB], logscale_data[FOMS])
+
+    residuals, coeffs, intercept = mvgress(
+        logscale_data[ENOB], logscale_data[FOMS])
     intercept += pd.Series(residuals).quantile(0.95)
-    foms_max_by_enob_x = np.arange(math.ceil(np.max(logscale_data[ENOB]))).reshape(-1, 1)
-    foms_max_by_enob = [float(intercept + coeffs[0] * x) for x in foms_max_by_enob_x]
+    foms_max_by_enob_x = np.arange(
+        math.ceil(np.max(logscale_data[ENOB]))).reshape(-1, 1)
+    foms_max_by_enob = [float(intercept + coeffs[0] * x)
+                        for x in foms_max_by_enob_x]
 
     freq_max = logscale_data[FREQ].quantile(0.95)
     fr = logscale_data[FREQ]
@@ -132,16 +145,16 @@ def build_model(source_data: pd.DataFrame,
 
     freqmodel = {MAX: freq_max}
     fomsmodel = {
-        FREQ: foms_coeffs[0], 
+        FREQ: foms_coeffs[0],
         MAX: foms_max,
-        INTERCEPT: foms_intercept, 
+        INTERCEPT: foms_intercept,
         MAX_BY_ENOB: foms_max_by_enob
     }
 
     model = {AREA: areamodel, FREQ: freqmodel, FOMS: fomsmodel,
-             COMMENTS: 'Tech node, area, and frequency are log-base-e-scaled. ' \
-                       'max_by_enob was also considered for limiting the frequency of ' \
-                       'ADCs, but max ADC frequency was plenty for realistic PIM ' \
+             COMMENTS: 'Tech node, area, and frequency are log-base-e-scaled. '
+                       'max_by_enob was also considered for limiting the frequency of '
+                       'ADCs, but max ADC frequency was plenty for realistic PIM '
                        'settings at reasonable ADC resolutions.'}
 
     for k in model:
@@ -155,15 +168,16 @@ def build_model(source_data: pd.DataFrame,
             except (ValueError, TypeError):
                 pass
 
-    print(f'Writing model to "{output_file}"')
+    logger.info(f'Writing model to "{output_file}"')
     with open(output_file, 'w') as outfile:
         yaml.dump(model, outfile, default_flow_style=False, sort_keys=False)
 
     return model
 
 
-def read_input_data(path: str) -> pd.DataFrame:
+def read_input_data(path: str) -> 'pd.DataFrame':
     """ Loads input adc_data from path """
+    import pandas as pd
     if '.xls' == path[-4:] or '.xlsx' == path[-5:]:
         data = pd.read_excel(path)
     else:
@@ -172,8 +186,6 @@ def read_input_data(path: str) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
-    # df = pd.read_csv('adc_data/adc_list.csv')
-    # model = build_model(df, 'adc_data/model.yaml')
     with open('./adc_data/model.yaml', 'r') as f:
         model = yaml.safe_load(f)
 
@@ -183,35 +195,25 @@ if __name__ == '__main__':
         for f in [1e8, 2.5e8, 5e8, 1e9, 2e9]:
             f_active = f
             params = {FREQ: math.log(f_active), ENOB: r, TECH: math.log(32)}
-            e = get_energy(params, model, False, False)
+            e = get_energy(params, model, True)
             params[ENRG] = e
             a = get_area(params, model)
             p = e * f_active
-            # print(r)
-            # print(f_active)
-            # print(e)
-            # print(e / prev)
-            # print(get_area(params, model))
-            # print(get_area(params, model) / prev2)
-            #print(f'{r} bit ADC running at frequency {f_active:.2E} aka '
-            #      f'exp({math.log(f_active):.2E}): {e*10**12:.2E}pJ/op, '
-            #      f'+{e / prev:.2f}. '
-            #      f'{get_area(params, model):.2E}um^2. '
-            #      f'+{get_area(params, model) / prev2:.2f}')
-            print(f'{r}, {f_active:.2E}, {a:.2E}')
+            logger.info(f'{r}, {f_active:.2E}, {a:.2E}')
             prev = e
             prev2 = get_area(params, model)
 
     resolutions = [x for x in range(4, 12)]
     frequencies = [1e7] + [5e7] + [1e8 * x for x in range(1, 21)]
-    print(',' + ','.join([f'{x/1e6}' for x in frequencies]))
+    logger.info(',' + ','.join([f'{x/1e6}' for x in frequencies]))
     for r in resolutions:
         energies = []
         areas = []
         for f in frequencies:
             params = {FREQ: math.log(f), ENOB: r, TECH: math.log(32)}
-            params[ENRG] = math.log(get_energy(params, model, False, False) * 1e12)
+            params[ENRG] = math.log(get_energy(
+                params, model, True) * 1e12)
             energies.append(math.exp(params[ENRG]))
             areas.append(get_area(params, model))
-            
-        print(f'{r},' + ','.join([f'{e:.2E}' for e in areas]))
+
+        logger.info(f'{r},' + ','.join([f'{e:.2E}' for e in areas]))
