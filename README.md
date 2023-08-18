@@ -61,7 +61,7 @@ be update to reflect the most recent data by running the following:
 pip3 install sklearn
 pip3 install pandas
 pip3 install numpy
-git submodule update --init --recursive
+git submodule update --init --recursive --remote
 python3 update_model.py
 ```
 
