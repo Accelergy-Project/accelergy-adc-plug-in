@@ -22,7 +22,7 @@ ENERGY_ACCURACY = 75
 
 CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc', 'array_adc',
                'pim_array_adc', 'cim_array_adc', 'cim_adc']
-ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'idle', 'activate']
+ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
 
 # ==============================================================================
 # Input Parsing
@@ -153,7 +153,7 @@ class ADCEstimator(AccelergyPlugIn):
                                       f'is not supported.')
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
-        if 'idle' in str(action_name).lower():
+        if 'leak' in str(action_name).lower():
             return Estimation(0, 'p')
         self.logger.info(f'Accelergy requested ADC energy'
                          f' estimation with attributes: {dict_to_str(attributes)}')
