@@ -22,7 +22,7 @@ class ADCRequest:
         self.throughput = throughput
         self.n_adc = n_adc
         self.logger = logger
-        assert self.bits > 5, 'Resolution must be >= 6 bits'
+        assert self.bits >= 4, 'Resolution must be >= 4 bits'
 
     def energy_per_op(self, model: Dict) -> float:
         """ Returns energy per operation in Joules. """
