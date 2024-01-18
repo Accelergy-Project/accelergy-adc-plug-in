@@ -40,7 +40,6 @@ setup(
         (sharedir, listdir()),
         (f'{sharedir}/adc_data', listdir('adc_data')),
     ],
-    include_package_data=True,
     entry_points={},
     zip_safe=False,
 )
