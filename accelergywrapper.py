@@ -16,13 +16,20 @@ import optimizer
 import model
 # fmt: on
 
-MODEL_FILE = os.path.join(SCRIPT_DIR, 'adc_data/model.yaml')
+MODEL_FILE = os.path.join(SCRIPT_DIR, "adc_data/model.yaml")
 AREA_ACCURACY = 75
 ENERGY_ACCURACY = 75
 
-CLASS_NAMES = ['adc', 'pim_adc', 'sar_adc', 'array_adc',
-               'pim_array_adc', 'cim_array_adc', 'cim_adc']
-ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
+CLASS_NAMES = [
+    "adc",
+    "pim_adc",
+    "sar_adc",
+    "array_adc",
+    "pim_array_adc",
+    "cim_array_adc",
+    "cim_adc",
+]
+ACTION_NAMES = ["convert", "drive", "read", "sample", "leak", "activate"]
 
 # ==============================================================================
 # Input Parsing
@@ -30,7 +37,7 @@ ACTION_NAMES = ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
 
 
 def unit_check(key, attributes, default, my_scale, accelergy_scale):
-    """ Checks for a key in attributes & does unit conversions """
+    """Checks for a key in attributes & does unit conversions"""
     if key not in attributes:
         return default
     try:
@@ -38,36 +45,36 @@ def unit_check(key, attributes, default, my_scale, accelergy_scale):
     except ValueError:
         pass
 
-    v = re.findall(r'(\d*\.?\d+|\d+\.?\d*)', attributes[key])
+    v = re.findall(r"(\d*\.?\d+|\d+\.?\d*)", attributes[key])
     if not v:
         return default
     v = float(v[0]) / my_scale
 
     nounit = True
-    for index, postfix in enumerate(['', 'm', 'u', 'n', 'p', 'f']):
+    for index, postfix in enumerate(["", "m", "u", "n", "p", "f"]):
         if postfix in attributes[key]:
             nounit = False
-            v /= (1000 ** index)
+            v /= 1000**index
     if nounit:
         v *= accelergy_scale
     return v
 
 
 def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
-    """ Creates an ADC Request from a list of attributes """
+    """Creates an ADC Request from a list of attributes"""
 
     def checkerr(attr, numeric):
-        assert attr in attributes, f'No attribute found: {attr}'
+        assert attr in attributes, f"No attribute found: {attr}"
         if numeric and isinstance(attributes[attr], str):
-            v = re.findall(r'(\d*\.?\d+|\d+\.?\d*)', attributes[attr])
-            assert v, f'No numeric found for attribute: {attr}'
+            v = re.findall(r"(\d*\.?\d+|\d+\.?\d*)", attributes[attr])
+            assert v, f"No numeric found for attribute: {attr}"
             return float(v[0])
         return attributes[attr]
 
     try:
-        n_adc = int(checkerr('n_adc', numeric=True))
+        n_adc = int(checkerr("n_adc", numeric=True))
     except AssertionError:
-        n_adc = int(checkerr('n_components', numeric=True))
+        n_adc = int(checkerr("n_components", numeric=True))
 
     def try_check(keys, numeric):
         for k in keys[:-1]:
@@ -78,17 +85,17 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
         return checkerr(keys[-1], numeric)
 
     resolution_names = []
-    for x0 in ['adc', '']:
-        for x1 in ['resolution', 'bits', 'n_bits']:
-            for x2 in ['adc', '']:
-                x = "_".join([x for x in [x0, x1, x2] if x != ''])
+    for x0 in ["adc", ""]:
+        for x1 in ["resolution", "bits", "n_bits"]:
+            for x2 in ["adc", ""]:
+                x = "_".join([x for x in [x0, x1, x2] if x != ""])
                 resolution_names.append(x)
-    resolution_names.append('resolution')
+    resolution_names.append("resolution")
 
     r = ADCRequest(
         bits=try_check(resolution_names, numeric=True),
-        tech=float(checkerr('technology', numeric=True)),
-        throughput=float(checkerr('throughput', numeric=True)),
+        tech=float(checkerr("technology", numeric=True)),
+        throughput=float(checkerr("throughput", numeric=True)),
         n_adc=n_adc,
         logger=logger,
     )
@@ -96,10 +103,10 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
 
 
 def dict_to_str(attributes: Dict) -> str:
-    """ Converts a dictionary into a multi-line string representation """
-    s = '\n'
+    """Converts a dictionary into a multi-line string representation"""
+    s = "\n"
     for k, v in attributes.items():
-        s += f'\t{k}: {v}\n'
+        s += f"\t{k}: {v}\n"
     return s
 
 
@@ -113,19 +120,19 @@ class ADCEstimator(AccelergyPlugIn):
         optimizer.logger = self.logger
 
         if not os.path.exists(MODEL_FILE):
-            self.logger.info(
-                f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
+            self.logger.info(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
             os.system(f'python3 {os.path.join(SCRIPT_DIR, "run.py")} -g')
         if not os.path.exists(MODEL_FILE):
+            self.logger.error(f"ERROR: Could not find model file: {MODEL_FILE}")
             self.logger.error(
-                f'ERROR: Could not find model file: {MODEL_FILE}')
-            self.logger.error(f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
-                              f'-g" to generate a model.')
-        with open(MODEL_FILE, 'r') as f:
+                f'Try running: "python3 {os.path.join(SCRIPT_DIR, "run.py")} '
+                f'-g" to generate a model.'
+            )
+        with open(MODEL_FILE, "r") as f:
             self.model = yaml.safe_load(f)
 
     def get_name(self) -> str:
-        return 'ADC Plug-In'
+        return "ADC Plug-In"
 
     def primitive_action_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
         class_name = query.class_name
@@ -133,12 +140,16 @@ class ADCEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-        if str(class_name).lower() in CLASS_NAMES and str(action_name).lower() in ACTION_NAMES:
+        if (
+            str(class_name).lower() in CLASS_NAMES
+            and str(action_name).lower() in ACTION_NAMES
+        ):
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(ENERGY_ACCURACY)
         self.logger.info(
-            f'ADC Plug-In does not support {class_name}.{action_name}. '
-            f'Supported classes: {CLASS_NAMES}, supported actions: {ACTION_NAMES}')
+            f"ADC Plug-In does not support {class_name}.{action_name}. "
+            f"Supported classes: {CLASS_NAMES}, supported actions: {ACTION_NAMES}"
+        )
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
     def estimate_energy(self, query: AccelergyQuery) -> Estimation:
@@ -147,20 +158,25 @@ class ADCEstimator(AccelergyPlugIn):
         action_name = query.action_name
         arguments = query.action_args
 
-        if str(class_name).lower() not in CLASS_NAMES or \
-                str(action_name).lower() not in ACTION_NAMES:
-            raise NotImplementedError(f'Energy estimation for {class_name}.{action_name}'
-                                      f'is not supported.')
+        if (
+            str(class_name).lower() not in CLASS_NAMES
+            or str(action_name).lower() not in ACTION_NAMES
+        ):
+            raise NotImplementedError(
+                f"Energy estimation for {class_name}.{action_name}" f"is not supported."
+            )
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
-        if 'leak' in str(action_name).lower():
-            return Estimation(0, 'p')
-        self.logger.info(f'Accelergy requested ADC energy'
-                         f' estimation with attributes: {dict_to_str(attributes)}')
-        energy_per_op = r.energy_per_op(self.model) * 1e12  # J to pJ
-        assert energy_per_op, 'Could not find ADC for request.'
-        self.logger.info(f'Generated model uses {energy_per_op:2E} pJ/op.')
-        return Estimation(energy_per_op, 'p')  # energy is in pJ)
+        if "leak" in str(action_name).lower():
+            return Estimation(0, "p")
+        self.logger.info(
+            f"Accelergy requested ADC energy"
+            f" estimation with attributes: {dict_to_str(attributes)}"
+        )
+        energy_per_op = r.energy_per_op(self.model)
+        assert energy_per_op, "Could not find ADC for request."
+        self.logger.info(f"Generated model uses {energy_per_op:2E} pJ/op.")
+        return Estimation(energy_per_op, "p")  # energy is in pJ)
 
     def primitive_area_supported(self, query: AccelergyQuery) -> AccuracyEstimation:
         class_name = query.class_name
@@ -172,8 +188,9 @@ class ADCEstimator(AccelergyPlugIn):
             adc_attr_to_request(attributes, self.logger)  # Errors if no match
             return AccuracyEstimation(AREA_ACCURACY)
         self.logger.info(
-            f'ADC Plug-In does not support {class_name}.{action_name}. '
-            f'Supported classes: {CLASS_NAMES}.')
+            f"ADC Plug-In does not support {class_name}.{action_name}. "
+            f"Supported classes: {CLASS_NAMES}."
+        )
 
         return AccuracyEstimation(0)  # if not supported, accuracy is 0
 
@@ -185,31 +202,34 @@ class ADCEstimator(AccelergyPlugIn):
 
         if str(class_name).lower() not in CLASS_NAMES:
             raise NotImplementedError(
-                f'Area estimation for {class_name} is not supported.')
+                f"Area estimation for {class_name} is not supported."
+            )
 
         r = adc_attr_to_request(attributes, self.logger)  # Errors if no match
-        self.logger.info(f'Accelergy requested ADC energy'
-                         f' estimation with attributes: {dict_to_str(attributes)}')
+        self.logger.info(
+            f"Accelergy requested ADC energy"
+            f" estimation with attributes: {dict_to_str(attributes)}"
+        )
         area = r.area(self.model)  # um^2 -> mm^2
-        self.logger.info(f'Generated model uses {area:2E} um^2 total.')
-        return Estimation(area, 'u^2')  # area is in um^2
+        self.logger.info(f"Generated model uses {area:2E} um^2 total.")
+        return Estimation(area, "u^2")  # area is in um^2
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     bits = 8
     technode = 16
     throughput = 512e7
     n_adc = 32
-    attrs = {
-        'class_name': 'ADC',
-        'action_name': 'convert',
-        'attributes': {
-            'resolution': bits,
-            'technology': technode,
-            'throughput': throughput,
-            'n_adc': n_adc
-        }
-    }
-    e = AnalogEstimator()
-    e.estimate_energy(attrs)
-    e.estimate_area(attrs)
+    e = ADCEstimator()
+    query = AccelergyQuery(
+        class_name="ADC",
+        action_name="convert",
+        class_attrs={
+            "resolution": bits,
+            "technology": technode,
+            "throughput": throughput,
+            "n_adc": n_adc,
+        },
+    )
+    print(e.estimate_energy(query))
+    print(e.estimate_area(query))
