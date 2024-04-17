@@ -72,9 +72,9 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
         return attributes[attr]
 
     try:
-        n_adc = int(checkerr("n_adc", numeric=True))
+        n_adcs = int(checkerr("n_adcs", numeric=True))
     except AssertionError:
-        n_adc = 1
+        n_adcs = 1
 
     def try_check(keys, numeric):
         for k in keys[:-1]:
@@ -96,7 +96,7 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
         bits=try_check(resolution_names, numeric=True),
         tech=float(checkerr("technology", numeric=True)),
         throughput=float(checkerr("throughput", numeric=True)),
-        n_adc=n_adc,
+        n_adcs=n_adcs,
         logger=logger,
     )
     return r
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     bits = 8
     technode = 16
     throughput = 512e7
-    n_adc = 32
+    n_adcs = 32
     e = ADCEstimator()
     query = AccelergyQuery(
         class_name="ADC",
@@ -228,7 +228,7 @@ if __name__ == "__main__":
             "resolution": bits,
             "technology": technode,
             "throughput": throughput,
-            "n_adc": n_adc,
+            "n_adcs": n_adcs,
         },
     )
     print(e.estimate_energy(query))
