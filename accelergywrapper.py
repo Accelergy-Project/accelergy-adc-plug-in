@@ -74,7 +74,7 @@ def adc_attr_to_request(attributes: Dict, logger: logging.Logger) -> ADCRequest:
     try:
         n_adc = int(checkerr("n_adc", numeric=True))
     except AssertionError:
-        n_adc = int(checkerr("n_components", numeric=True))
+        n_adc = 1
 
     def try_check(keys, numeric):
         for k in keys[:-1]:
