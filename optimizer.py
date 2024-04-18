@@ -14,13 +14,13 @@ class ADCRequest:
         bits: float,  # Resolution (bits)
         tech: float,  # Tech node (nm)
         throughput: float = 0,  # ops/channel/second
-        n_adc: int = 1,  # Number of ADCs. Fractions allowed
+        n_adcs: int = 1,  # Number of ADCs. Fractions allowed
         logger: logging.Logger = None,
     ):
         self.bits = bits
         self.tech = tech
         self.throughput = throughput
-        self.n_adc = n_adc
+        self.n_adcs = n_adcs
         self.logger = logger
         assert self.bits >= 4, "Resolution must be >= 4 bits"
 
@@ -29,20 +29,20 @@ class ADCRequest:
         design_params = {
             ENOB: self.bits,
             TECH: math.log(self.tech),
-            FREQ: math.log(self.throughput / self.n_adc),
+            FREQ: math.log(self.throughput / self.n_adcs),
         }
         e_per_op = get_energy(design_params, model, True)
 
         self.logger.info("\tAlternative designs:")
-        for n_adc in range(max(self.n_adc - 5, 1), self.n_adc + 5):
-            f = self.throughput / n_adc
+        for n_adcs in range(max(self.n_adcs - 5, 1), self.n_adcs + 5):
+            f = self.throughput / n_adcs
             design_params[FREQ] = math.log(f)
             try:
                 e = get_energy(design_params, model, True)
-                a = self.area(model, n_adc)
-                l = "\tCHOSEN > " if n_adc == self.n_adc else "\t         "
+                a = self.area(model, n_adcs)
+                l = "\tCHOSEN > " if n_adcs == self.n_adcs else "\t         "
                 self.logger.info(
-                    f"{l}{n_adc:2f} ADCs running at {f:2E}Hz: "
+                    f"{l}{n_adcs:2f} ADCs running at {f:2E}Hz: "
                     f"{e:2E}pJ/op, {a/1e6:2E}mm^2"
                 )
             except AssertionError:
@@ -52,21 +52,21 @@ class ADCRequest:
 
     def area(self, model: Dict, n_adc_override=-1) -> float:
         """Returns area in um^2."""
-        n_adc = self.n_adc if n_adc_override == -1 else n_adc_override
+        n_adcs = self.n_adcs if n_adc_override == -1 else n_adc_override
         design_params = {
             ENOB: self.bits,
             TECH: math.log(self.tech),
-            FREQ: math.log(self.throughput / n_adc),
+            FREQ: math.log(self.throughput / n_adcs),
         }
         design_params[ENRG] = math.log(get_energy(design_params, model, True))
-        return get_area(design_params, model) * n_adc
+        return get_area(design_params, model) * n_adcs
 
 
 CACHED_MODEL = None
 
 
 def quick_get_area(
-    bits: float, tech: float, throughput: float, n_adc: int, energy=None
+    bits: float, tech: float, throughput: float, n_adcs: int, energy=None
 ):
     """Returns area in um^2. For testing purposes."""
     global CACHED_MODEL
@@ -80,16 +80,16 @@ def quick_get_area(
     design_params = {
         ENOB: bits,
         TECH: math.log(tech),
-        FREQ: math.log(throughput / n_adc),
+        FREQ: math.log(throughput / n_adcs),
     }
     design_params[ENRG] = math.log(
         energy or get_energy(design_params, CACHED_MODEL, True)
     )
-    return get_area(design_params, CACHED_MODEL) * n_adc
+    return get_area(design_params, CACHED_MODEL) * n_adcs
 
 
 def quick_get_energy(
-    bits: float, tech: float, throughput: float, n_adc: int, energy=None
+    bits: float, tech: float, throughput: float, n_adcs: int, energy=None
 ):
     """Returns area in um^2. For testing purposes."""
     global CACHED_MODEL
@@ -103,6 +103,6 @@ def quick_get_energy(
     design_params = {
         ENOB: bits,
         TECH: math.log(tech),
-        FREQ: math.log(throughput / n_adc),
+        FREQ: math.log(throughput / n_adcs),
     }
     return get_energy(design_params, CACHED_MODEL)
