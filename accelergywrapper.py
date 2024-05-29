@@ -2,9 +2,13 @@ import logging
 import sys
 import os
 import re
-from typing import Dict
+from typing import Dict, List
 import yaml
 from accelergy.plug_in_interface.interface import *
+from accelergy.plug_in_interface.estimator_wrapper import (
+    SupportedComponent,
+    PrintableCall,
+)
 
 # Need to add this directory to path for proper imports
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -213,6 +217,15 @@ class ADCEstimator(AccelergyPlugIn):
         area = r.area(self.model)  # um^2 -> mm^2
         self.logger.info(f"Generated model uses {area:2E} um^2 total.")
         return Estimation(area, "u^2")  # area is in um^2
+
+    def get_supported_components(self) -> List[SupportedComponent]:
+        return [
+            SupportedComponent(
+                CLASS_NAMES,
+                PrintableCall("", ["resolution", "technology", "throughput", "n_adcs"]),
+                [PrintableCall(a) for a in ACTION_NAMES],
+            )
+        ]
 
 
 if __name__ == "__main__":
