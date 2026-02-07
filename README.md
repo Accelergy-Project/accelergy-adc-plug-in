@@ -1,3 +1,7 @@
+# Deprecation Warning
+
+Please see https://github.com/Accelergy-Project/hwcomponents-adc for the latest version.
+
 ## Accelergy ADC Plug-In
 The Accelergy ADC Plug-In provides estimates for the area and energy of
 Analog-Digital Converters (ADCs) for use in analog & mixed-signal accelerator
